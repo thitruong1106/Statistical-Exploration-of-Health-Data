@@ -1,6 +1,6 @@
 ---
-title: "Assignment Tasks Spring 2022"
-author: "18682713"
+title: "Exploration of Health Data"
+author: "Thi kim Truong"
 output: word_document
 ---
 # Reading the data 
