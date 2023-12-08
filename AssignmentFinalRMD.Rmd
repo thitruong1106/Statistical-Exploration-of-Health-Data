@@ -1,0 +1,144 @@
+---
+title: "Assignment Tasks Spring 2022"
+author: "18682713"
+output: word_document
+---
+# Reading the data 
+```{r}
+HealthData <- read.csv("HealthData.csv")
+attach(HealthData)
+```
+## Question 1 
+Use the information about the gender, current smoking status and age variables from your sample. 
+Is there a significant association between the gender and current smoking status for the people who are aged between 30 to 50?
+What does being associated mean in this context? Interpret your findings.
+```{r}
+#H0: There is not an association between gender and current smoking status for the people who are aged between 30-50.
+#HA: There is an association between gender and current smoking status for the people who are aged between 30-50. 
+HealthData <-subset(HealthData, Age>=30 & Age<=50)#using the Sex, and smoke column
+df<- table(HealthData$Sex, HealthData$Smoke)
+df
+chitest = chisq.test(df)
+chitest$expected #compute expected 
+#One expected count is less that 5. 
+chisq.test(df, simulate.p.value = TRUE)#Use of simulation is needed. 
+#P value is small. We can reject the null hypothesis and can conclude there is a significant association between gender and smoking status for people aged between 30-50.
+```
+
+
+## Question 2
+Test whether the mean number of alcoholic drinks consumed per day for male US residents is greater than female US residents.
+
+```{r}
+#H0: difference in mean = 0 
+#HA: mean male > female
+head(HealthData)
+nrow(HealthData)
+table(HealthData$Sex)
+# Sample Size is large, both categories have more than 30 observation.
+boxplot(HealthData$Alcohol~HealthData$Sex)
+#Variance looks similar
+alcohol.female = subset(HealthData, Sex=="Female", Alcohol, drop=TRUE)
+alcohol.male = subset(HealthData, Sex=="Male", Alcohol, drop=TRUE)
+#Avoid alphabetical sorting, As our hypothesis is male > female 
+Gender <- factor(HealthData$Sex, levels = c("Male", "Female"))
+t.test(HealthData$Alcohol ~ Gender,alt="greater", var = TRUE)
+#p-value is large, so we cannot reject the null hypothesis. There is not enough evidence that the mean number of alcoholic drink consumed per day for male is greater than the mean number of alcoholic drinks consumed per day for female.  
+```
+
+
+## Question 3 
+Test whether the mean micrograms of beta-carotene consumed (BetaDiet) is different between the levels of vitamin use.
+If so, determine which level(s) of vitamin use has a statistically different mean. 
+```{r}
+#H0: μ1 = μ2 = μ3
+#H1: Means are not all equal.
+dotchart(HealthData$BetaDiet, group = as.factor(HealthData$Vitamin), xlab = "Beta Diet",
+ pch = 16)
+boxplot(BetaDiet ~ Vitamin, data = HealthData)
+fit = aov(BetaDiet~as.factor(Vitamin), data=HealthData)
+summary(fit)
+#F-Stat:14.09, small p value. 
+#Because of the p value being smaller than 0.05, we can reject the null hypothesis, and can conclude that at least one pair of means differ. 
+TukeyHSD(fit, conf.level = .95)
+#From the output, we can see that the only p adj that is less than our significance level of 0.05 is for the difference between vitamin level 3-1, and vitamin levels 3-2. 
+#Thus we can conclude that there is a significant difference in mean vitamin levels between indivduals that used vitamin 3-1, and 3-2. 
+```
+
+
+## Question 4
+* Use Bootstrapping to compute a 99% confidence interval for the difference between the mean level of Retinol in the blood (RetinolPlasma) for smoker and non-smoker AU residents.
+* Approximate a 99% confidence interval based on a t-distribution for the difference between the mean level of Retinol in the blood (RetinolPlasma) for smoker and non-smoker AU residents.
+* How do the results compare? Justify your answer.
+
+```{r}
+#BootStrapping
+RetinolPlasma.nonsmoke = subset(HealthData, Smoke=="No", RetinolPlasma, drop=TRUE)
+RetinolPlasma.smoke = subset(HealthData, Smoke=="Yes", RetinolPlasma, drop=TRUE)
+#Repear the process 1000 times
+d = replicate(1000,{
+nonsmoke.resamp = sample(RetinolPlasma.nonsmoke, replace=TRUE)
+smoke.resamp = sample(RetinolPlasma.smoke, replace=TRUE)
+mean(nonsmoke.resamp) - mean(smoke.resamp)
+})
+hist(d, xlab="Sample difference", main="", breaks=20)
+#99% bootstrap confidence intervals using percentiles 
+quantile(d, c(0.005, 0.995))
+q99=quantile(d, c(0.005,0.995))
+# A line showing us the 99% region 
+abline(v=c(q99[1],q99[2]), lwd=2)
+#99% confidence interval based on a t distribution.
+t.test(RetinolPlasma~Smoke, data=HealthData, var.equal=TRUE, conf=0.99)
+#T-test p value, we can conclude that there is evidence there is a difference between the mean level of Retinol in the blood (RetinolPlasma) for smoker and non-smoker AU residents.
+#We can be 99% confident that the population mean is between 41.30534 to 228.33556 from the bootstrap. 
+#We can be 99% confident that the population mean is between 25.49881  and 252.73540, for the t test. 
+```
+
+## Question 5
+Draw a scatterplot of fibre intake vs plasma beta carotene level. Does there appear to be a linear relationship between these variables?
+Measure the strength of the linear relationship.
+Can a genuine causal relationship be established from this study? Justify your answer.
+```{r}
+#Ho: no relationship
+#HA: there is a relationsihp 
+plot(BetaPlasma ~ Fibre, data=HealthData, pch=16) #Scatter plot 
+fit = lm(BetaPlasma ~ Fibre, data = HealthData)
+print(fit)
+plot(BetaPlasma ~ Fibre, data=HealthData)
+abline(fit, col=2, lwd=2)
+cor.test(HealthData$Fibre, HealthData$BetaPlasma)
+#Some decreasing linear relationship
+#Values of r near 0 indicate a very weak linear relationship.
+#These two variables have a negative association because,as betaPlasma decreases, their fibre intake increase.
+#A genuine causal relationship can be establised as tge result is shown to be significat. 
+#Since the p value, is smaller than our significant lvel of 0.05, we can conclude there is a relationship between fibre and betaPlasma.
+#However, the correlation r of -0.204, indicate a very weak relationship.
+```
+
+## Question 6
+Test if there is a linear relationship between fibre intake and plasma beta carotene level.
+If so, predict a person’s fibre intake, from the plasma beta carotene level. What is your point estimate of the population fibre intake when the plasma beta carotene level is 215 ng/ml?
+How good is your fit? Discuss the suitability and/or strength of your model.
+```{r}
+cor(HealthData$Fibre, HealthData$BetaPlasma)
+#-0.2040495 indicated a very weak negative linear relationship 
+fit = lm(Fibre ~ BetaPlasma, data=HealthData) # compute the best fit
+print(fit) # show the fitted Fibre and betaplasma values
+plot(Fibre ~ BetaPlasma, data=HealthData) # plot the data
+abline(fit, col=2, lwd=2) # add the regression line using the fitted a and b
+#point estimate of the population fibre intake
+summary(fit)
+#The p value, for our intecept is less than a significant level of 0.05, we can conclude that it is significant to our model. 
+#BetaPlasma is a significant predictor of Fibre as the p value for slope is 0.00497.Smaller than our significance level of 0.05. 
+# There is evidence that the slope is not zero
+predict(fit, newdata=data.frame(BetaPlasma=c(215)))
+#Point estimate is 13.87323 
+predict(fit, newdata=data.frame(BetaPlasma=c(215)), interval="conf")
+#For the Health data, betaplasma at 215 the actual prediction is 13.87. A 95% confidence interval is
+#13.03945, 14.70701grams. 
+```
+
+## Question 7 
+Can the results be generalized to all people? Justify your answer.
+
+A sample representing a certain population's outcome can only be generalised to that population. As a result, in order to generalise on a larger population, the sample should be drawn from that larger population using other recognised sampling methods.
